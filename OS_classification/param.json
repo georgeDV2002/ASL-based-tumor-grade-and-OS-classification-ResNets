@@ -1,0 +1,50 @@
+{
+  "TRAIN": false,
+  "TEST": true,
+  "data": {
+    "root": "/home/george/programs/asl_os_wtabBIN/final_data_aug_bin",
+    "x_train": "X_train.npy",
+    "y_train": "y_train.npy",
+    "x_test": "X_test.npy",
+    "y_test": "y_test.npy",
+    "tab_train": "tab_train.npy",
+    "tab_test": "tab_test.npy"
+  },
+  "model": {
+    "initial_filters": 32,
+    "block_layers": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "bottleneck": false,
+    "dropout_rate": 0.1,
+    "groups_gn": 32
+  },
+  "film": {
+    "mlp_hidden": 128,
+    "mlp_layers": 2,
+    "mlp_dropout": 0.0,
+    "mlp_activation": "relu",
+    "apply_stages": "late"
+  },
+  "training": {
+    "epochs": 200,
+    "batch_size": 1,
+    "mixed_precision": false,
+    "base_lr": 0.000444846026125396,
+    "weight_decay": 1e-07,
+    "early_stopping_patience": 16,
+    "lr_plateau_patience": 4
+  },
+  "cv": {
+    "n_splits": 5,
+    "shuffle": true,
+    "random_state": 42
+  },
+  "output": {
+    "workdir": "/home/george/programs/asl_os_wtabBIN/optuna_outputs/output_0020",
+    "save_fold_models": true
+  }
+}

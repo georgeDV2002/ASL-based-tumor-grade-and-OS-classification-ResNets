@@ -1,0 +1,52 @@
+{
+  "TRAIN": true,
+  "TEST": false,
+  "data": {
+    "root": "/home/georgedv/programs/new_folder/final_data_aug",
+    "x_train": "X_train.npy",
+    "y_train": "y_train.npy",
+    "x_test": "X_test.npy",
+    "y_test": "y_test.npy",
+    "label_values": [
+      2,
+      3,
+      4
+    ],
+    "num_classes": 3
+  },
+  "model": {
+    "initial_filters": 32,
+    "block_layers": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "bottleneck": false,
+    "dropout_rate": 0.3,
+    "groups_gn": 32
+  },
+  "training": {
+    "epochs": 150,
+    "batch_size": 1,
+    "mixed_precision": false,
+    "class_weights": true,
+    "base_lr": 0.0001403111128940621,
+    "weight_decay": 1e-07,
+    "loss_type": "cce",
+    "label_smoothing": 0.0031094331270017928,
+    "focal_gamma": 2.0,
+    "focal_alpha": null,
+    "early_stopping_patience": 15,
+    "lr_plateau_patience": 3
+  },
+  "cv": {
+    "n_splits": 5,
+    "shuffle": true,
+    "random_state": 42
+  },
+  "output": {
+    "workdir": "/home/georgedv/programs/new_folder/optuna_outputs/output_0030",
+    "save_fold_models": true
+  }
+}

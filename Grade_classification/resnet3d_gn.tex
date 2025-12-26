@@ -1,0 +1,548 @@
+\documentclass[border=12pt, multi, tikz]{standalone}
+
+% ========== Packages / PlotNeuralNet init ==========
+\usepackage[fontsize=14pt]{fontsize}
+\usepackage{import}
+\subimport{./layers/}{init} % PlotNeuralNet macros (Box, RightBandedBox, Ball, anchors, \midarrow)
+
+%% Customize modarrow (overwrote init file)
+%\renewcommand{\midarrow}{%
+%  \tikz \draw[-{Stealth[length=4pt, width=2pt]}, line width=0.9pt, draw=\edgecolor]
+%  (-0.18,0) -- (0.18,0);
+%}
+
+% Completely disable midarrows
+\renewcommand{\midarrow}{}
+
+\usetikzlibrary{positioning}
+\usetikzlibrary{3d} % from PlotNeuralNet (safe)
+\usetikzlibrary{calc}
+\usetikzlibrary{backgrounds}
+\tikzset{every node/.style={font=\small}} % or \footnotesize / \scriptsize
+
+\begin{document}
+\noindent
+\begin{tikzpicture}[every node/.style={scale=0.85,transform shape}]
+
+% ===================================================
+% Colors
+% ===================================================
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}   % orange-ish (conv body)
+\def\ConvReluColor{rgb:yellow,5;red,5}         % darker orange band
+\def\PoolColor{rgb:red,1;black,0}              % dark grey (GAP)
+\def\FcColor{rgb:blue,5;red,2.5;white,5}       % bluish/purple (FC)
+\def\SoftmaxColor{rgb:magenta,5;black,7}       % purple band (softmax)
+\def\SumColor{rgb:blue,5;green,15}             % green balls (+)
+\def\edgecolor{rgb:blue,4;red,1;green,1;black,3}
+
+% ===================================================
+% Styles & Helpers
+% ===================================================
+
+\tikzstyle{connection}=[
+  very thick,
+  draw=\edgecolor,
+  -{Stealth[length=7pt, width=5pt]},
+  line cap=round,
+  shorten >=0.0pt,
+  shorten <=0.0pt,
+  every node/.style={sloped, allow upside down},
+  opacity=0.9
+]
+
+\tikzstyle{skip}=[
+  very thick,
+  draw=\edgecolor,
+  -{Stealth[length=7pt, width=5pt]},
+  line cap=round,
+  shorten >=0pt,
+  shorten <=0pt,
+  opacity=0.9
+]
+
+\tikzstyle{fcconnect}=[
+  very thin,
+  draw=\edgecolor,
+  dashed,
+  opacity=0.6,
+  shorten >=0pt,
+  shorten <=0pt
+]
+
+% ===================================================
+% Global spacing knobs
+% ===================================================
+\def\gapA{3}         % input -> stem
+\def\gapRB{0.5}      % within a residual pair
+\def\gapStage{1.2}   % between residual stages
+\def\gapStem{2.0}   % between residual stages
+\def\gapHead{1.5}    % Stage4 -> GAP
+\def\denseHead{1.5}  % GAP -> Dense
+
+% ===================================================
+% Input: 70^3
+% ===================================================
+\pic at (0,0,0) {
+  Box={
+    name=input,
+    caption=\textbf{Input},
+    xlabel=1, ylabel=70, zlabel=,
+    fill=\ConvColor,
+    height=50, width=0.1, depth=50
+  }
+};
+
+% ===================================================
+% Stem: Conv 7x7 s2 + GN + ReLU -> 35^3
+% ===================================================
+\pic[shift={(1.8,0,0)}] at (input-east) {
+  RightBandedBox={
+    name=stem,
+    caption=,
+    xlabel={{"32",""}}, ylabel=35, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=25, width=0.64, depth=15
+  }
+};
+
+\node[align=center] at ($(stem-south)-(0,2,0)$)
+  {\footnotesize Conv 7$\times$7 \\ \footnotesize (stride=2)\\ \footnotesize GN + ReLU};
+
+% -------- MaxPool: 3x3, stride=2 -> 18^3 --------
+\pic[shift={(2.0,0,0)}] at (stem-east) {
+  Box={
+    name=mp1,
+    %caption=\makebox[0pt]{\shortstack[c]{MaxPool 3$\times$3\\ \footnotesize stride=2}},
+    caption=,
+    xlabel={{"32",""}}, ylabel=18, zlabel=,
+    fill=\PoolColor,
+    height=25, width=0.6, depth=15
+  }
+};
+
+\node[align=center] at ($(mp1-north)-(0,-1.5,0)$)
+  {\shortstack[c]{MaxPool 3$\times$3\\ \footnotesize stride=2}};
+
+% ===================================================
+% Stage 1 (2 residual blocks @ 18^3, 32ch) — no downsample
+% ===================================================
+
+% --- Block 1 ---
+\pic[shift={(\gapStem,0,0)}] at (mp1-east) { % <-- start from mp1 (MaxPool) output
+  RightBandedBox={
+    name=stage1a,
+    caption=,
+    xlabel={{"32",""}}, ylabel=18, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=25, width=1.28, depth=15
+  }
+};
+% (Second conv of block 1)
+\pic[shift={(\gapRB,0,0)}] at (stage1a-east) {
+  RightBandedBox={
+    name=stage1a_b,
+    caption=,
+    xlabel={{"32",""}}, ylabel=18, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=25, width=1.28, depth=15
+  }
+};
+% (+) for Block 1
+\pic[shift={(0.8,0,0)}] at (stage1a_b-east) {
+  Ball={name=add1a, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage1a-west) ++(-0.35,0,0) coordinate (s1a_start);
+\path (s1a_start) ++(0,3,0) coordinate (s1a_top);
+\path (add1a-north) ++(0,3,0) coordinate (add1a_top);
+\path (s1a_top -| add1a_top) coordinate (s1a_corner);
+\draw[skip]
+  (s1a_start) -- (s1a_top) -- (s1a_corner) -- (add1a_top) -- (add1a-north);
+
+% Forward connection after Block 1
+\draw[connection] (stage1a_b-east) -- node {\midarrow} (add1a-west);
+
+% --- Block 2 ---
+\pic[shift={(\gapRB,0,0)}] at (add1a-east) {
+  RightBandedBox={
+    name=stage1b,
+    caption=, % 3x3 s=1, GN(32)+ReLU
+    xlabel={{"32",""}}, ylabel=18, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=25, width=1.28, depth=15
+  }
+};
+\pic[shift={(\gapRB,0,0)}] at (stage1b-east) {
+  RightBandedBox={
+    name=stage1b_b,
+    caption=, % 3x3 s=1, GN(32) -> Add -> ReLU
+    xlabel={{"32",""}}, ylabel=18, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=25, width=1.28, depth=15
+  }
+};
+% (+) for Block 2
+\pic[shift={(0.8,0,0)}] at (stage1b_b-east) {
+  Ball={name=add1b, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage1b-west) ++(-0.35,0,0) coordinate (s1b_start);
+\path (s1b_start) ++(0,3,0) coordinate (s1b_top);
+\path (add1b-north) ++(0,3,0) coordinate (add1b_top);
+\path (s1b_top -| add1b_top) coordinate (s1b_corner);
+\draw[skip]
+  (s1b_start) -- (s1b_top) -- (s1b_corner) -- (add1b_top) -- (add1b-north);
+
+\node[align=center] at ($(stage1a-south)!0.5!(stage1b_b-south) + (0,-1.7)$)
+  {\textbf{Stage 1: } 2$\times$ \textbf{ResBlock}};
+
+% ======== 3D translucent wrapper ========
+\pic[shift={(0.7,0,0)}] at (mp1-east) {
+  Box={
+    name=stage1wrap,
+    caption=,
+    fill=cyan!30!green!15,
+    opacity=0.20,
+    height=35,   % same as stage conv boxes
+    width=27,    % adjust until it spans across all stage2 blocks
+    depth=17      % same as conv depth
+  }
+};
+
+% ===================================================
+% Stage 2 (2 residual blocks @ 9^3, 64ch) — first block downsamples
+% ===================================================
+
+% --- Block 1 (downsample: s=2) ---
+\pic[shift={(\gapStage,0,0)}] at (add1b-east) { % or (add1-east) if you named it add1
+  RightBandedBox={
+    name=stage2a,
+    caption=,
+    xlabel={{"64",""}}, ylabel=9, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=13, width=2.56, depth=8
+  }
+};
+% Second conv of Block 1 (s=1), then Add -> ReLU
+\pic[shift={(\gapRB,0,0)}] at (stage2a-east) {
+  RightBandedBox={
+    name=stage2a_b,
+    caption=,
+    xlabel={{"64",""}}, ylabel=9, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=13, width=2.56, depth=8
+  }
+};
+% (+) for Block 1
+\pic[shift={(0.8,0,0)}] at (stage2a_b-east) {
+  Ball={name=add2a, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage2a-west) ++(-0.50,0,0) coordinate (s2a_start);
+\path (s2a_start) ++(0,1.6,0) coordinate (s2a_top);
+\path (add2a-north) ++(0,1.6,0) coordinate (add2a_top);
+\path (s2a_top -| add2a_top) coordinate (s2a_corner);
+\draw[skip]
+  (s2a_start) -- (s2a_top) -- (s2a_corner) -- (add2a_top) -- (add2a-north);
+
+% Forward connection after Block 1
+\draw[connection] (stage2a_b-east) -- node {\midarrow} (add2a-west);
+
+% --- Block 2 (no downsample: s=1) ---
+\pic[shift={(\gapRB,0,0)}] at (add2a-east) {
+  RightBandedBox={
+    name=stage2b,
+    caption=,
+    xlabel={{"64",""}}, ylabel=9, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=13, width=2.56, depth=8
+  }
+};
+\pic[shift={(\gapRB,0,0)}] at (stage2b-east) {
+  RightBandedBox={
+    name=stage2b_b,
+    caption=,
+    xlabel={{"64",""}}, ylabel=9, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=13, width=2.56, depth=8
+  }
+};
+% (+) for Block 2
+\pic[shift={(0.8,0,0)}] at (stage2b_b-east) {
+  Ball={name=add2b, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage2b-west) ++(-0.35,0,0) coordinate (s2b_start);
+\path (s2b_start) ++(0,1.6,0) coordinate (s2b_top);
+\path (add2b-north) ++(0,1.6,0) coordinate (add2b_top);
+\path (s2b_top -| add2b_top) coordinate (s2b_corner);
+\draw[skip]
+  (s2b_start) -- (s2b_top) -- (s2b_corner) -- (add2b_top) -- (add2b-north);
+
+\node[align=center] at ($(stage2a-south)!0.5!(stage2b_b-south) + (0,-1.7)$)
+  {\textbf{Stage 2: } 2$\times$ \textbf{ResBlock}};
+
+% ======== 3D translucent wrapper ========
+\pic[shift={(0.5,0,0)}] at (add1b-east) {
+  Box={
+    name=stage2wrap,
+    caption=,
+    fill=cyan!30!green!15,
+    opacity=0.20,
+    height=22,   % same as stage conv boxes
+    width=30,    % adjust until it spans across all stage2 blocks
+    depth=10     % same as conv depth
+  }
+};
+
+% ===================================================
+% Stage 3 (2 residual blocks @ 5^3, 128ch) — first block downsamples
+% ===================================================
+
+% --- Block 1 (downsample: s=2) ---
+\pic[shift={(\gapStage,0,0)}] at (add2b-east) { % or (add2-east) if that's your node
+  RightBandedBox={
+    name=stage3a,
+    caption=,
+    xlabel={{"128",""}}, ylabel={\raisebox{-20pt}{5}},, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=6, width=5.12, depth=3.6
+  }
+};
+% Second conv of Block 1 (s=1), then Add -> ReLU
+\pic[shift={(\gapRB,0,0)}] at (stage3a-east) {
+  RightBandedBox={
+    name=stage3a_b,
+    caption=,
+    xlabel={{"128",""}}, ylabel={\raisebox{-20pt}{5}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=6, width=5.12, depth=3.6
+  }
+};
+% (+) for Block 1
+\pic[shift={(0.8,0,0)}] at (stage3a_b-east) {
+  Ball={name=add3a, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage3a-west) ++(-0.35,0,0) coordinate (s3a_start);
+\path (s3a_start) ++(0,1.0,0) coordinate (s3a_top);
+\path (add3a-north) ++(0,1.0,0) coordinate (add3a_top);
+\path (s3a_top -| add3a_top) coordinate (s3a_corner);
+\draw[skip]
+  (s3a_start) -- (s3a_top) -- (s3a_corner) -- (add3a_top) -- (add3a-north);
+
+% Forward connection after Block 1
+\draw[connection] (stage3a_b-east) -- node {\midarrow} (add3a-west);
+
+% --- Block 2 (no downsample: s=1) ---
+\pic[shift={(\gapRB,0,0)}] at (add3a-east) {
+  RightBandedBox={
+    name=stage3b,
+    caption=,
+    xlabel={{"128",""}}, ylabel={\raisebox{-20pt}{5}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=6, width=5.12, depth=3.6
+  }
+};
+\pic[shift={(\gapRB,0,0)}] at (stage3b-east) {
+  RightBandedBox={
+    name=stage3b_b,
+    caption=,
+    xlabel={{"128",""}}, ylabel={\raisebox{-20pt}{5}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=6, width=5.12, depth=3.6
+  }
+};
+% (+) for Block 2
+\pic[shift={(0.8,0,0)}] at (stage3b_b-east) {
+  Ball={name=add3b, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage3b-west) ++(-0.35,0,0) coordinate (s3b_start);
+\path (s3b_start) ++(0,1.0,0) coordinate (s3b_top);
+\path (add3b-north) ++(0,1.0,0) coordinate (add3b_top);
+\path (s3b_top -| add3b_top) coordinate (s3b_corner);
+\draw[skip]
+  (s3b_start) -- (s3b_top) -- (s3b_corner) -- (add3b_top) -- (add3b-north);
+
+\node[align=center] at ($(stage3a-south)!0.5!(stage3b_b-south) + (0,-1.5)$)
+  {\textbf{Stage 3: } 2$\times$ \textbf{ResBlock}};
+
+% ======== 3D translucent wrapper ========
+\pic[shift={(0.5,0,0)}] at (add2b-east) {
+  Box={
+    name=stage3wrap,
+    caption=,
+    fill=cyan!30!green!15,
+    opacity=0.20,
+    height=13,   % same as stage conv boxes
+    width=42,    % adjust until it spans across all stage2 blocks
+    depth=8     % same as conv depth
+  }
+};
+
+% ===================================================
+% Stage 4 (2 residual blocks @ 3^3, 256ch) — first block downsamples
+% ===================================================
+
+% --- Block 1 (downsample: s=2) ---
+\pic[shift={(\gapStage,0,0)}] at (add3b-east) { % or (add3-east) if that's your node
+  RightBandedBox={
+    name=stage4a,
+    caption=,
+    xlabel={{"256",""}}, ylabel={\raisebox{-20pt}{3}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=4, width=5.12, depth=2.4
+  }
+};
+% Second conv of Block 1 (s=1), then Add -> ReLU
+\pic[shift={(\gapRB,0,0)}] at (stage4a-east) {
+  RightBandedBox={
+    name=stage4a_b,
+    caption=,
+    xlabel={{"256",""}}, ylabel={\raisebox{-20pt}{3}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=4, width=5.12, depth=2.4
+  }
+};
+% (+) for Block 1
+\pic[shift={(0.8,0,0)}] at (stage4a_b-east) {
+  Ball={name=add4a, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage4a-west) ++(-0.35,0,0) coordinate (s4a_start);
+\path (s4a_start) ++(0,0.7,0) coordinate (s4a_top);
+\path (add4a-north) ++(0,0.7,0) coordinate (add4a_top);
+\path (s4a_top -| add4a_top) coordinate (s4a_corner);
+\draw[skip]
+  (s4a_start) -- (s4a_top) -- (s4a_corner) -- (add4a_top) -- (add4a-north);
+
+% Forward connection after Block 1
+\draw[connection] (stage4a_b-east) -- node {\midarrow} (add4a-west);
+
+% --- Block 2 (no downsample: s=1) ---
+\pic[shift={(\gapRB,0,0)}] at (add4a-east) {
+  RightBandedBox={
+    name=stage4b,
+    caption=,
+    xlabel={{"256",""}}, ylabel={\raisebox{-20pt}{3}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=4, width=5.12, depth=2.4
+  }
+};
+\pic[shift={(\gapRB,0,0)}] at (stage4b-east) {
+  RightBandedBox={
+    name=stage4b_b,
+    caption=,
+    xlabel={{"256",""}}, ylabel={\raisebox{-20pt}{3}}, zlabel=,
+    fill=\ConvColor, bandfill=\ConvReluColor,
+    height=4, width=5.12, depth=2.4
+  }
+};
+% (+) for Block 2
+\pic[shift={(0.8,0,0)}] at (stage4b_b-east) {
+  Ball={name=add4b, fill=\SumColor, radius=1, logo=\(+\)}
+};
+
+\path (stage4b-west) ++(-0.35,0,0) coordinate (s4b_start);
+\path (s4b_start) ++(0,0.7,0) coordinate (s4b_top);
+\path (add4b-north) ++(0,0.7,0) coordinate (add4b_top);
+\path (s4b_top -| add4b_top) coordinate (s4b_corner);
+\draw[skip]
+  (s4b_start) -- (s4b_top) -- (s4b_corner) -- (add4b_top) -- (add4b-north);
+
+\node[align=center] at ($(stage4a-south)!0.5!(stage4b_b-south) + (0,-1.5)$)
+  {\textbf{Stage 4: } 2$\times$ \textbf{ResBlock}};
+
+% ======== 3D translucent wrapper ========
+\pic[shift={(0.5,0,0)}] at (add3b-east) {
+  Box={
+    name=stage4wrap,
+    caption=,
+    fill=cyan!30!green!15,
+    opacity=0.20,
+    height=9,   % same as stage conv boxes
+    width=42,    % adjust until it spans across all stage2 blocks
+    depth=5     % same as conv depth
+  }
+};
+
+% ===================================================
+% Head: GAP -> Dense(3) -> Dropout -> Softmax
+% ===================================================
+\pic[shift={(\gapHead,0,0)}] at (add4b-east) {
+  Box={
+    name=gap,
+    caption=,
+    xlabel={{"1",""}}, ylabel={\raisebox{-20pt}{1}}, zlabel=\qquad 256,
+    fill=\PoolColor,
+    height=1.5, width=1.5, depth=50
+  }
+};
+
+\pic[shift={(\denseHead,0,0)}] at (gap-east) {
+  RightBandedBox={
+    name=fc,
+    caption=,
+    xlabel={{"1",""}}, ylabel={\raisebox{-20pt}{1}}, zlabel=\qquad 3,
+    fill=\FcColor,
+    height=1.5, width=1.5, depth=4.5
+  }
+};
+
+% Keep the same neat legend — include Dropout and Softmax conceptually
+\node[align=center] at ($ (gap-south)!0.5!(fc-south) + (0,-2.5) $)
+  {\textbf{Head} \\ GAP $\rightarrow$ Dropout(0.3) $\rightarrow$ Dense(3) $\rightarrow$ Softmax};
+
+% ===================================================
+% Straight connections 
+% ===================================================
+% Input -> Stem -> MaxPool
+\draw[connection] (input-east) -- node {\midarrow} (stem-west);
+\draw[connection] (stem-east)  -- node {\midarrow} (mp1-west);
+
+% Stage 1 (internal wiring usually drawn inside Stage 1 section)
+\draw[connection] (mp1-east)      -- node {\midarrow} (stage1a-west);
+\draw[connection] (stage1a-east)  -- (stage1a_b-west);
+\draw[connection] (stage1a_b-east) -- node {\midarrow} (add1a-west);
+\draw[connection] (add1a-east)    -- node {\midarrow} (stage1b-west);
+\draw[connection] (stage1b-east)  -- (stage1b_b-west);
+\draw[connection] (stage1b_b-east) -- node {\midarrow} (add1b-west);
+
+% Stage 2
+\draw[connection] (add1b-east)    -- node {\midarrow} (stage2a-west);
+\draw[connection] (stage2a-east)  -- (stage2a_b-west);
+\draw[connection] (stage2a_b-east) -- node {\midarrow} (add2a-west);
+\draw[connection] (add2a-east)    -- node {\midarrow} (stage2b-west);
+\draw[connection] (stage2b-east)  -- (stage2b_b-west);
+\draw[connection] (stage2b_b-east) -- node {\midarrow} (add2b-west);
+
+% Stage 3
+\draw[connection] (add2b-east)    -- node {\midarrow} (stage3a-west);
+\draw[connection] (stage3a-east)  -- (stage3a_b-west);
+\draw[connection] (stage3a_b-east) -- node {\midarrow} (add3a-west);
+\draw[connection] (add3a-east)    -- node {\midarrow} (stage3b-west);
+\draw[connection] (stage3b-east)  -- (stage3b_b-west);
+\draw[connection] (stage3b_b-east) -- node {\midarrow} (add3b-west);
+
+% Stage 4
+\draw[connection] (add3b-east)    -- node {\midarrow} (stage4a-west);
+\draw[connection] (stage4a-east)  -- (stage4a_b-west);
+\draw[connection] (stage4a_b-east) -- node {\midarrow} (add4a-west);
+\draw[connection] (add4a-east)    -- node {\midarrow} (stage4b-west);
+\draw[connection] (stage4b-east)  -- (stage4b_b-west);
+\draw[connection] (stage4b_b-east) -- node {\midarrow} (add4b-west);
+
+% Head Connections
+\draw[connection] (add4b-east) -- node {\midarrow} (gap-west);
+\draw[connection] (gap-east)   -- node {\midarrow} (fc-west);
+
+% Decorative dashed connectors
+\draw[fcconnect] (gap-nearnortheast) -- (fc-nearnorthwest);
+\draw[fcconnect] (gap-nearsoutheast)  -- (fc-nearsouthwest);
+\draw[fcconnect] (gap-farnortheast)  -- (fc-farnorthwest);
+\draw[fcconnect] (gap-farsoutheast)  -- (fc-farsouthwest);
+
+\end{tikzpicture}
+\end{document}
+
